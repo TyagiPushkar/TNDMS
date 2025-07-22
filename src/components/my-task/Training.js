@@ -18,15 +18,31 @@ import {
   InputAdornment,
   Container,
   CircularProgress,
-  Autocomplete
+  Autocomplete,
+  Card,
+  CardContent,
+  Divider,
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  LinearProgress,
 } from "@mui/material"
-import { useLocation, useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams, useLocation } from "react-router-dom"
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore"
+import CheckCircleIcon from "@mui/icons-material/CheckCircle"
+import CancelIcon from "@mui/icons-material/Cancel"
+import AccessTimeIcon from "@mui/icons-material/AccessTime"
+import QuizIcon from "@mui/icons-material/Quiz"
 
-function AddAMC() {
-    const { menuId } = useParams(); 
-    const location = useLocation();
-    const ticketId = location.state?.ticketId;
-
+export default function Training() {
+  const navigate = useNavigate()
+  const params = useParams()
+  const location = useLocation();
+  
+  const { menuId } = params
+  const searchParams = new URLSearchParams(location.search)
+  const ticketId = location.state?.ticketId;
   const [pages, setPages] = useState([])
   const [checkpoints, setCheckpoints] = useState([])
   const [types, setTypes] = useState([])
@@ -36,44 +52,60 @@ function AddAMC() {
   const [visibleDependents, setVisibleDependents] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadingError, setLoadingError] = useState("")
-  const navigate = useNavigate()
+  const [submitted, setSubmitted] = useState(false)
+  const [score, setScore] = useState(0)
+  const [totalQuestions, setTotalQuestions] = useState(0)
+  const [showResults, setShowResults] = useState(false)
+  const [examTime, setExamTime] = useState(0)
+  const [passPercentage, setPassPercentage] = useState(0.7) // Default to 70%
+
+  // Timer effect
+  useEffect(() => {
+    if (!submitted) {
+      const timer = setInterval(() => {
+        setExamTime((prev) => prev + 1)
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [submitted])
+
+  // Format time
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
 
   // Amount fields configuration
-  const amountFieldIds = [62, 64, 66, 70];
-  const totalFieldId = 72 // Field to display total
+  const amountFieldIds = [62, 64, 66, 70]
+  const totalFieldId = 72
 
   // Format currency helper
   const formatCurrency = (value) => {
-    const num = parseFloat(value) || 0
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
+    const num = Number.parseFloat(value) || 0
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(num)
   }
 
   // Calculate total bid value whenever any amount field changes
   useEffect(() => {
-    const field61 = parseFloat(formData[61]) || 0;
-    const field62 = parseFloat(formData[62]) || 0;
-    const field63 = parseFloat(formData[63]) || 0;
-    const field64 = parseFloat(formData[64]) || 0;
-    const field65 = parseFloat(formData[65]) || 0;
-    const field66 = parseFloat(formData[66]) || 0;
-    const field69 = parseFloat(formData[69]) || 0;
-    const field70 = parseFloat(formData[70]) || 0;
-
-    const total = (field61 * field62) + 
-                  (field63 * field64) + 
-                  (field65 * field66) + 
-                  (field69 * field70);
-
+    const field61 = Number.parseFloat(formData[61]) || 0
+    const field62 = Number.parseFloat(formData[62]) || 0
+    const field63 = Number.parseFloat(formData[63]) || 0
+    const field64 = Number.parseFloat(formData[64]) || 0
+    const field65 = Number.parseFloat(formData[65]) || 0
+    const field66 = Number.parseFloat(formData[66]) || 0
+    const field69 = Number.parseFloat(formData[69]) || 0
+    const field70 = Number.parseFloat(formData[70]) || 0
+    const total = field61 * field62 + field63 * field64 + field65 * field66 + field69 * field70
     if (formData[totalFieldId] !== total.toString()) {
-      handleChange(totalFieldId, total.toFixed(2));
+      handleChange(totalFieldId, total.toFixed(2))
     }
-  }, [formData[61], formData[62], formData[63], formData[64], 
-      formData[65], formData[66], formData[69], formData[70]]);
+  }, [formData[61], formData[62], formData[63], formData[64], formData[65], formData[66], formData[69], formData[70]])
 
   const handleChange = (id, value) => {
     setFormData((prev) => ({ ...prev, [id]: value }))
@@ -108,8 +140,7 @@ function AddAMC() {
         } else {
           newVisibleDependents[parentId] = []
         }
-      }
-      else if (parentCheckpoint.TypeId === 6 || (parentCheckpoint.TypeId === 9 && parentCheckpoint.Correct === "1")) {
+      } else if (parentCheckpoint.TypeId === 6 || (parentCheckpoint.TypeId === 9 && parentCheckpoint.Correct === "1")) {
         const selectedValues = Array.isArray(value) ? value : value ? value.split(",").map((v) => v.trim()) : []
         const dependentIds = []
         selectedValues.forEach((val) => {
@@ -150,6 +181,7 @@ function AddAMC() {
     const fetchData = async () => {
       setLoading(true)
       try {
+        // Use environment variables for API URLs in a real application
         const menuRes = await axios.get(`https://namami-infotech.com/TNDMS/src/menu/get_menu.php?MenuId=${menuId}`)
         const checkpointRes = await axios.get("https://namami-infotech.com/TNDMS/src/menu/get_checkpoints.php")
         const typeRes = await axios.get("https://namami-infotech.com/TNDMS/src/menu/get_types.php")
@@ -157,10 +189,24 @@ function AddAMC() {
         const checkpointIds = menuRes.data.data[0].CheckpointId.split(";").map((p) =>
           p.split(",").map((id) => Number.parseInt(id)),
         )
-
         setPages(checkpointIds)
         setCheckpoints(checkpointRes.data.data)
         setTypes(typeRes.data.data)
+
+        // Calculate total questions based on the current menu's checkpoints
+        const relevantCheckpointIds = checkpointIds.flat() // Flatten all pages into a single list of IDs
+        const relevantCheckpoints = checkpointRes.data.data.filter((cp) =>
+          relevantCheckpointIds.includes(cp.CheckpointId),
+        )
+        const total = relevantCheckpoints.filter((cp) => {
+          const type = typeRes.data.data.find((t) => t.TypeId === cp.TypeId)?.Type?.toLowerCase() || ""
+          return !type.includes("header") && !type.includes("description")
+        }).length
+        setTotalQuestions(total)
+
+        // Set pass percentage from menu API (using 'Paas' as per your JSON)
+        const passPercent = Number.parseFloat(menuRes.data.data[0].Paas) / 100 || 0.7 // Convert to decimal, default to 0.7
+        setPassPercentage(passPercent)
       } catch (error) {
         console.error("Error fetching data:", error)
         setLoadingError("Failed to load form data. Please try again later.")
@@ -168,9 +214,8 @@ function AddAMC() {
         setLoading(false)
       }
     }
-
     fetchData()
-  }, [])
+  }, [menuId]) // Depend on menuId to refetch if it changes
 
   useEffect(() => {
     Object.entries(formData).forEach(([id, value]) => {
@@ -183,13 +228,39 @@ function AddAMC() {
     return type ? type.Type.trim() : "Unknown"
   }
 
-  const renderField = (cp) => {
+  const isCorrectAnswer = (checkpointId, userAnswer) => {
+    const cp = checkpoints.find((c) => c.CheckpointId === checkpointId)
+    if (!cp || !cp.Correct) return false
+    const correctAnswer = cp.Correct.trim()
+    if (!correctAnswer) return false
+
+    const type = getType(cp.TypeId).toLowerCase()
+
+    if (type === "checkbox" || (type === "dropdown" && cp.Correct === "1")) {
+      // For multi-select questions
+      const correctAnswers = correctAnswer.split(",").map((a) => a.trim())
+      const userAnswers = Array.isArray(userAnswer) ? userAnswer : userAnswer ? userAnswer.split(",") : []
+
+      if (correctAnswers.length !== userAnswers.length) return false
+      return (
+        correctAnswers.every((ans) => userAnswers.includes(ans)) &&
+        userAnswers.every((ans) => correctAnswers.includes(ans))
+      )
+    } else {
+      // For single answer questions
+      return userAnswer === correctAnswer
+    }
+  }
+
+  const renderField = (cp, showCorrectAnswer = false) => {
     const type = getType(cp.TypeId).trim()
     const options = cp.Options ? cp.Options.split(",").map((opt) => opt.trim()) : []
     const value = formData[cp.CheckpointId] || ""
     const error = errors[cp.CheckpointId]
-    const editable = cp.Editable === 1
+    const editable = cp.Editable === 1 && !submitted
     const isMandatory = cp.Mandatory === 1
+    const isCorrect = showCorrectAnswer && isCorrectAnswer(cp.CheckpointId, value)
+    const hasAnswer = value !== "" && value !== null && value !== undefined
 
     if (cp.CheckpointId === totalFieldId) {
       return (
@@ -214,7 +285,7 @@ function AddAMC() {
                   "& input": {
                     fontWeight: "bold",
                     color: "#2e7d32",
-                  }
+                  },
                 },
               }}
             />
@@ -230,6 +301,13 @@ function AddAMC() {
             <Typography sx={{ fontWeight: 500, color: "#555" }}>
               {cp.Description}
               {isMandatory && <span style={{ color: "red", marginLeft: "4px" }}>*</span>}
+              {showCorrectAnswer &&
+                hasAnswer &&
+                (isCorrect ? (
+                  <CheckCircleIcon sx={{ color: "green", ml: 1, fontSize: "1rem" }} />
+                ) : (
+                  <CancelIcon sx={{ color: "red", ml: 1, fontSize: "1rem" }} />
+                ))}
             </Typography>
           </Grid>
           <Grid item xs={8}>
@@ -247,7 +325,7 @@ function AddAMC() {
               }}
               inputProps={{
                 step: "0.01",
-                min: "0"
+                min: "0",
               }}
               sx={{
                 "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
@@ -255,10 +333,15 @@ function AddAMC() {
                 },
               }}
               onBlur={(e) => {
-                const num = parseFloat(e.target.value) || 0
+                const num = Number.parseFloat(e.target.value) || 0
                 handleChange(cp.CheckpointId, num.toFixed(2))
               }}
             />
+            {showCorrectAnswer && cp.Correct && (
+              <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                Correct answer: {cp.Correct}
+              </Typography>
+            )}
           </Grid>
         </Grid>
       )
@@ -280,129 +363,173 @@ function AddAMC() {
       )
     }
 
+    // Determine if the current type should use the MCQ-like vertical layout
+    const isMcqType = ["dropdown", "radio", "checkbox"].includes(type.toLowerCase())
+
     return (
-      <Grid container spacing={2} alignItems="center">
-        <Grid item xs={4}>
+      <Grid container spacing={2} {...(isMcqType ? {} : { alignItems: "center" })}>
+        <Grid item xs={12} sm={isMcqType ? 12 : 4}>
+          {" "}
+          {/* Full width for MCQ types, 4 for others */}
           <Typography sx={{ fontWeight: 500, color: "#555" }}>
             {cp.Description}
             {isMandatory && <span style={{ color: "red", marginLeft: "4px" }}>*</span>}
+            {showCorrectAnswer &&
+              hasAnswer &&
+              (isCorrect ? (
+                <CheckCircleIcon sx={{ color: "green", ml: 1, fontSize: "1rem" }} />
+              ) : (
+                <CancelIcon sx={{ color: "red", ml: 1, fontSize: "1rem" }} />
+              ))}
           </Typography>
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={isMcqType ? 12 : 8}>
+          {" "}
+          {/* Full width for MCQ types, 8 for others */}
           {(() => {
             switch (type) {
               case "Text":
               case "Email":
                 return (
-                  <TextField
-                    fullWidth
-                    type={type === "Email" ? "email" : "text"}
-                    value={value}
-                    onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
-                    error={error}
-                    helperText={error ? "This field is required" : ""}
-                    disabled={!editable}
-                    size="small"
-                    sx={{
-                      "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#F69320",
-                      },
-                    }}
-                  />
+                  <>
+                    <TextField
+                      fullWidth
+                      type={type === "Email" ? "email" : "text"}
+                      value={value}
+                      onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
+                      error={error}
+                      helperText={error ? "This field is required" : ""}
+                      disabled={!editable}
+                      size="small"
+                      sx={{
+                        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#F69320",
+                        },
+                      }}
+                    />
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct answer: {cp.Correct}
+                      </Typography>
+                    )}
+                  </>
                 )
-
               case "Number":
               case "Digit":
                 return (
-                  <TextField
-                    fullWidth
-                    type="number"
-                    value={value}
-                    onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
-                    error={error}
-                    helperText={error ? "This field is required" : ""}
-                    disabled={!editable}
-                    size="small"
-                    sx={{
-                      "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#F69320",
-                      },
-                    }}
-                  />
+                  <>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      value={value}
+                      onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
+                      error={error}
+                      helperText={error ? "This field is required" : ""}
+                      disabled={!editable}
+                      size="small"
+                      sx={{
+                        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#F69320",
+                        },
+                      }}
+                    />
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct answer: {cp.Correct}
+                      </Typography>
+                    )}
+                  </>
                 )
-
               case "Long Text":
                 return (
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    value={value}
-                    onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
-                    error={error}
-                    helperText={error ? "This field is required" : ""}
-                    disabled={!editable}
-                    size="small"
-                    sx={{
-                      "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#F69320",
-                      },
-                    }}
-                  />
+                  <>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={4}
+                      value={value}
+                      onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
+                      error={error}
+                      helperText={error ? "This field is required" : ""}
+                      disabled={!editable}
+                      size="small"
+                      sx={{
+                        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#F69320",
+                        },
+                      }}
+                    />
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct answer: {cp.Correct}
+                      </Typography>
+                    )}
+                  </>
                 )
-
               case "Date":
                 return (
-                  <TextField
-                    fullWidth
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    value={value}
-                    onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
-                    error={error}
-                    helperText={error ? "This field is required" : ""}
-                    disabled={!editable}
-                    size="small"
-                    sx={{
-                      "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: "#F69320",
-                      },
-                    }}
-                  />
+                  <>
+                    <TextField
+                      fullWidth
+                      type="date"
+                      InputLabelProps={{ shrink: true }}
+                      value={value}
+                      onChange={(e) => handleChange(cp.CheckpointId, e.target.value)}
+                      error={error}
+                      helperText={error ? "This field is required" : ""}
+                      disabled={!editable}
+                      size="small"
+                      sx={{
+                        "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: "#F69320",
+                        },
+                      }}
+                    />
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct answer: {cp.Correct}
+                      </Typography>
+                    )}
+                  </>
                 )
-
               case "Dropdown":
                 const isMultiSelect = cp.Correct === "1"
                 return (
-                  <Autocomplete
-                    fullWidth
-                    multiple={isMultiSelect}
-                    options={options}
-                    value={
-                      isMultiSelect ? (value ? (Array.isArray(value) ? value : value.split(",")) : []) : value || null
-                    }
-                    onChange={(event, newValue) => {
-                      const finalValue = isMultiSelect ? newValue.join(",") : newValue
-                      handleChange(cp.CheckpointId, finalValue)
-                    }}
-                    disabled={!editable}
-                    size="small"
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label=""
-                        error={error}
-                        helperText={error ? "This field is required" : ""}
-                        sx={{
-                          "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#F69320",
-                          },
-                        }}
-                      />
+                  <>
+                    <Autocomplete
+                      fullWidth
+                      multiple={isMultiSelect}
+                      options={options}
+                      value={
+                        isMultiSelect ? (value ? (Array.isArray(value) ? value : value.split(",")) : []) : value || null
+                      }
+                      onChange={(event, newValue) => {
+                        const finalValue = isMultiSelect ? newValue.join(",") : newValue
+                        handleChange(cp.CheckpointId, finalValue)
+                      }}
+                      disabled={!editable}
+                      size="small"
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label=""
+                          error={error}
+                          helperText={error ? "This field is required" : ""}
+                          sx={{
+                            "& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#F69320",
+                            },
+                          }}
+                        />
+                      )}
+                    />
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct answer: {cp.Correct.split(",").join(", ")}
+                      </Typography>
                     )}
-                  />
+                  </>
                 )
-
               case "Radio":
                 return (
                   <>
@@ -416,7 +543,7 @@ function AddAMC() {
                               disabled={!editable}
                               sx={{
                                 "&.Mui-checked": {
-                                  color: "#F69320",
+                                  color: isCorrect && showCorrectAnswer ? "green" : "#F69320",
                                 },
                               }}
                             />
@@ -430,50 +557,57 @@ function AddAMC() {
                         This field is required
                       </Typography>
                     )}
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct answer: {cp.Correct}
+                      </Typography>
+                    )}
                   </>
                 )
-
               case "Checkbox":
                 return (
-                  <FormGroup row>
-                    {options.map((opt) => (
-                      <FormControlLabel
-                        key={opt}
-                        control={
-                          <Checkbox
-                            checked={value?.includes(opt)}
-                            onChange={(e) => {
-                              const checked = e.target.checked
-                              let updated = []
-
-                              if (typeof value === "string") {
-                                updated = value ? value.split(",").map((v) => v.trim()) : []
-                              } else if (Array.isArray(value)) {
-                                updated = [...value]
-                              }
-
-                              if (checked && !updated.includes(opt)) {
-                                updated.push(opt)
-                              } else if (!checked) {
-                                updated = updated.filter((v) => v !== opt)
-                              }
-
-                              handleChange(cp.CheckpointId, updated)
-                            }}
-                            disabled={!editable}
-                            sx={{
-                              "&.Mui-checked": {
-                                color: "#F69320",
-                              },
-                            }}
-                          />
-                        }
-                        label={opt}
-                      />
-                    ))}
-                  </FormGroup>
+                  <>
+                    <FormGroup row>
+                      {options.map((opt) => (
+                        <FormControlLabel
+                          key={opt}
+                          control={
+                            <Checkbox
+                              checked={value?.includes(opt)}
+                              onChange={(e) => {
+                                const checked = e.target.checked
+                                let updated = []
+                                if (typeof value === "string") {
+                                  updated = value ? value.split(",").map((v) => v.trim()) : []
+                                } else if (Array.isArray(value)) {
+                                  updated = [...value]
+                                }
+                                if (checked && !updated.includes(opt)) {
+                                  updated.push(opt)
+                                } else if (!checked) {
+                                  updated = updated.filter((v) => v !== opt)
+                                }
+                                handleChange(cp.CheckpointId, updated)
+                              }}
+                              disabled={!editable}
+                              sx={{
+                                "&.Mui-checked": {
+                                  color: isCorrect && showCorrectAnswer && value?.includes(opt) ? "green" : "#F69320",
+                                },
+                              }}
+                            />
+                          }
+                          label={opt}
+                        />
+                      ))}
+                    </FormGroup>
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct answer: {cp.Correct.split(",").join(", ")}
+                      </Typography>
+                    )}
+                  </>
                 )
-
               case "Pic/Camera":
                 return (
                   <Box>
@@ -508,9 +642,13 @@ function AddAMC() {
                         This field is required
                       </Typography>
                     )}
+                    {showCorrectAnswer && cp.Correct && (
+                      <Typography variant="body2" sx={{ mt: 1, color: isCorrect ? "green" : "red" }}>
+                        Correct file name should contain: {cp.Correct}
+                      </Typography>
+                    )}
                   </Box>
                 )
-
               default:
                 return <TextField size="small" disabled />
             }
@@ -520,10 +658,9 @@ function AddAMC() {
     )
   }
 
-  const renderCheckpointWithDependents = (cp, pageData) => {
+  const renderCheckpointWithDependents = (cp, pageData, showCorrectAnswer = false) => {
     const isEven = pageData.indexOf(cp.CheckpointId) % 2 === 0
     const bgColor = isEven ? "#f8f8f8" : "#ffffff"
-
     const dependentIds = visibleDependents[cp.CheckpointId] || []
     const dependentCheckpoints = checkpoints.filter((c) => dependentIds.includes(c.CheckpointId))
 
@@ -545,9 +682,8 @@ function AddAMC() {
         }}
       >
         <Box sx={{ display: "flex", alignItems: "center", mb: 1 }}>
-          <Box sx={{ flexGrow: 1 }}>{renderField(cp)}</Box>
+          <Box sx={{ flexGrow: 1 }}>{renderField(cp, showCorrectAnswer)}</Box>
         </Box>
-
         {dependentCheckpoints.length > 0 && (
           <Box
             sx={{
@@ -558,7 +694,7 @@ function AddAMC() {
           >
             {dependentCheckpoints.map((depCp) => (
               <Box key={depCp.CheckpointId} sx={{ mb: 1 }}>
-                {renderField(depCp)}
+                {renderField(depCp, showCorrectAnswer)}
               </Box>
             ))}
           </Box>
@@ -567,34 +703,38 @@ function AddAMC() {
     )
   }
 
-  const pageData = pages[currentPage] || []
+  const calculateScore = () => {
+    let correct = 0
+    let total = 0
+    // Only count questions that are part of the current menu's pages
+    const relevantCheckpointIds = pages.flat()
+    const relevantCheckpoints = checkpoints.filter((cp) => relevantCheckpointIds.includes(cp.CheckpointId))
 
-  const handleNext = () => {
-    setCurrentPage((prev) => prev + 1)
-  }
-
-  const convertToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = (error) => reject(error)
+    relevantCheckpoints.forEach((cp) => {
+      const type = getType(cp.TypeId).toLowerCase()
+      if (type.includes("header") || type.includes("description")) return
+      total++
+      if (cp.Correct && isCorrectAnswer(cp.CheckpointId, formData[cp.CheckpointId])) {
+        correct++
+      }
     })
+    setScore(correct)
+    setTotalQuestions(total)
+    return { correct, total }
   }
 
   const handleSubmit = async () => {
     const newErrors = {}
     let hasErrors = false
-  
+
     // First pass: Validate mandatory fields
     pages.forEach((pageCheckpoints) => {
       pageCheckpoints.forEach((id) => {
         const cp = checkpoints.find((c) => c.CheckpointId === id)
         if (!cp) return
-  
         const type = getType(cp.TypeId).toLowerCase()
         if (type.includes("header") || type.includes("description")) return
-  
+
         // Only check mandatory fields
         if (cp.Mandatory === 1) {
           const value = formData[id]
@@ -610,7 +750,7 @@ function AddAMC() {
         }
       })
     })
-  
+
     if (hasErrors) {
       setErrors(newErrors)
       Swal.fire({
@@ -620,12 +760,11 @@ function AddAMC() {
       })
       return
     }
-  
+
     setErrors({})
-  
-    const date = new Date()
-    const dateTime = date.toISOString().slice(0, 19).replace("T", " ")
-  
+    setSubmitted(true)
+    const { correct, total } = calculateScore()
+
     Swal.fire({
       title: "Submitting form...",
       allowOutsideClick: false,
@@ -633,35 +772,35 @@ function AddAMC() {
         Swal.showLoading()
       },
     })
-  
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const latLong = `${pos.coords.latitude}, ${pos.coords.longitude}`
+        const date = new Date()
+        const dateTime = date.toISOString().slice(0, 19).replace("T", " ")
         const activityId = `${dateTime.replace(/\D/g, "")}_${latLong.replace(/[^0-9]/g, "")}`
-  
+
         try {
           // Prepare text data - include ALL fields, with null for unfilled ones
           const textData = {}
           const imageData = {}
-  
+
           // Process all checkpoints that are in the form pages
           for (const page of pages) {
             for (const id of page) {
-              const cp = checkpoints.find(c => c.CheckpointId === id)
+              const cp = checkpoints.find((c) => c.CheckpointId === id)
               if (!cp) continue
-  
               const type = getType(cp.TypeId).toLowerCase()
-              
+
               // Skip headers and descriptions
               if (type.includes("header") || type.includes("description")) continue
-  
+
               const value = formData[id]
               const parentId = getParentId(id)
-  
+
               // Handle dependent fields
               if (parentId) {
                 const combinedId = `${parentId}_${id}`
-                
                 if (type === "pic/camera") {
                   if (value) {
                     const base64 = await convertToBase64(value)
@@ -670,13 +809,11 @@ function AddAMC() {
                     imageData[combinedId] = null
                   }
                 } else {
-                  textData[combinedId] = value 
-                    ? (Array.isArray(value) ? value.join(",") : value)
-                    : null
+                  textData[combinedId] = value ? (Array.isArray(value) ? value.join(",") : value) : null
                 }
                 continue
               }
-  
+
               // Handle regular fields
               if (type === "pic/camera") {
                 if (value) {
@@ -686,22 +823,20 @@ function AddAMC() {
                   imageData[id] = null
                 }
               } else {
-                textData[id] = value 
-                  ? (Array.isArray(value) ? value.join(",") : value)
-                  : null
+                textData[id] = value ? (Array.isArray(value) ? value.join(",") : value) : null
               }
             }
           }
-  
+
           // Submit text data (now includes all fields)
           await axios.post("https://namami-infotech.com/TNDMS/src/menu/add_transaction.php", {
             menuId,
             ActivityId: activityId,
             LatLong: latLong,
             data: textData,
-            TaskId : ticketId || null, 
+            TaskId: ticketId || null,
           })
-  
+
           // Submit image data (now includes all fields)
           if (Object.keys(imageData).length > 0) {
             await axios.post("https://namami-infotech.com/TNDMS/src/menu/add_image.php", {
@@ -711,14 +846,20 @@ function AddAMC() {
               data: imageData,
             })
           }
-  
+
           Swal.fire({
             icon: "success",
             title: "Form Submitted",
-            text: "Your form has been submitted successfully!",
+            html: `
+              <div>
+                <p>Your form has been submitted successfully!</p>
+                <p>Score: ${correct}/${total} (${Math.round((correct / total) * 100)}%)</p>
+                <p>Time taken: ${formatTime(examTime)}</p>
+              </div>
+            `,
             confirmButtonColor: "#F69320",
           }).then(() => {
-            navigate("/my-tasks", { replace: true })
+            setShowResults(true)
           })
         } catch (error) {
           console.error("Submission error", error)
@@ -738,12 +879,25 @@ function AddAMC() {
           confirmButtonColor: "#F69320",
         })
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      { timeout: 10000, enableHighAccuracy: true },
     )
+  }
+
+  const handleNext = () => {
+    setCurrentPage((prev) => prev + 1)
   }
 
   const handlePrevious = () => {
     setCurrentPage((prev) => Math.max(prev - 1, 0))
+  }
+
+  const convertToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = (error) => reject(error)
+    })
   }
 
   if (loading) {
@@ -776,79 +930,208 @@ function AddAMC() {
     )
   }
 
+  if (showResults) {
+    const userScorePercentage = totalQuestions > 0 ? score / totalQuestions : 0
+    const passed = userScorePercentage >= passPercentage
+
+    return (
+      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        <Card sx={{ mb: 4 }}>
+          <CardContent>
+            <Typography variant="h4" component="div" sx={{ mb: 2, textAlign: "center", color: "#F69320" }}>
+              Examination Results
+            </Typography>
+            <Divider sx={{ my: 2 }} />
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="h6">
+                  Score:{" "}
+                  <span style={{ color: passed ? "green" : "red" }}>
+                    {score}/{totalQuestions} ({Math.round(userScorePercentage * 100)}%)
+                  </span>
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="h6">Time Taken: {formatTime(examTime)}</Typography>
+              </Grid>
+            </Grid>
+            <Typography variant="body1" sx={{ mb: 2 }}>
+              {passed
+                ? "Congratulations! You have passed the examination."
+                : "You did not pass this time. Please review the material and try again."}
+            </Typography>
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+              <Button
+                variant="contained"
+                sx={{
+                  backgroundColor: "#F69320",
+                  "&:hover": { backgroundColor: "#e08416" },
+                }}
+                onClick={() => navigate("/my-tasks")}
+              >
+                Back to My Tasks
+              </Button>
+            </Box>
+          </CardContent>
+        </Card>
+        <Typography variant="h5" sx={{ mb: 2, textAlign: "center" }}>
+          Question Review
+        </Typography>
+        {Array.isArray(pages) &&
+          pages.map((page, pageIndex) => (
+            <Accordion key={pageIndex} id={`accordion-section-${pageIndex}`} defaultExpanded={!passed}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography>Section {pageIndex + 1}</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                {Array.isArray(page) &&
+                  page.map((id) => {
+                    const cp = checkpoints.find((c) => c.CheckpointId === id)
+                    if (!cp) return null
+                    const type = getType(cp.TypeId).toLowerCase()
+                    if (type.includes("header") || type.includes("description")) {
+                      return renderField(cp, true)
+                    }
+                    if (isVisibleDependent(cp.CheckpointId)) {
+                      return null
+                    }
+                    return renderCheckpointWithDependents(cp, page, true)
+                  })}
+              </AccordionDetails>
+            </Accordion>
+          ))}
+      </Container>
+    )
+  }
+
+  const pageData = pages[currentPage] || []
+
   return (
-    <Container maxWidth="md" sx={{ mt: 0, mb: 4 }}>
-      <Box sx={{ mb: 3 }}>
+    <Container maxWidth="l" sx={{ mt: 0, mb: 4 }}>
+      {!submitted && (
+        <Box
+          sx={{
+            position: "sticky",
+            top: 0,
+            zIndex: 1000,
+            py: 2,
+            mb: 2,
+          }}
+        >
+          <Typography variant="h6" sx={{ textAlign: "center", color: "#F69320" }}>
+            Examination in Progress
+          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mt: 1,
+            }}
+          >
+            <Typography variant="body2">
+              Page {currentPage + 1} of {pages.length}
+            </Typography>
+            <Chip
+              icon={<AccessTimeIcon />}
+              label={`Time: ${formatTime(examTime)}`}
+              color="primary"
+              sx={{
+                backgroundColor: "#F69320",
+                color: "white",
+                "& .MuiChip-icon": { color: "white" },
+              }}
+            />
+            <Typography variant="body2">
+              <QuizIcon sx={{ fontSize: "1rem", mr: 0.5, verticalAlign: "middle" }} />
+              Questions: {totalQuestions}
+            </Typography>
+          </Box>
+          {/* Progress bar */}
+          <LinearProgress
+            variant="determinate"
+            value={((currentPage + 1) / pages.length) * 100}
+            sx={{
+              mt: 1,
+              height: 6,
+              borderRadius: 3,
+              "& .MuiLinearProgress-bar": {
+                backgroundColor: "#F69320",
+              },
+            }}
+          />
+        </Box>
+      )}
+      <Box sx={{ minHeight: "60vh" }}>
         {pageData.map((id) => {
           const cp = checkpoints.find((c) => c.CheckpointId === id)
           if (!cp) return null
-
+          const type = getType(cp.TypeId).toLowerCase()
+          if (type.includes("header") || type.includes("description")) {
+            return renderField(cp)
+          }
           if (isVisibleDependent(cp.CheckpointId)) {
             return null
           }
-
           return renderCheckpointWithDependents(cp, pageData)
         })}
       </Box>
-
-      <Box sx={{ display: "flex", gap: 2, justifyContent: "center", mt: 3 }}>
-        {currentPage > 0 && (
+      {!submitted && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            mt: 4,
+            position: "sticky",
+            bottom: 0,
+            py: 2,
+            borderTop: "1px solid #e0e0e0",
+          }}
+        >
           <Button
-            variant="contained"
+            variant="outlined"
+            onClick={handlePrevious}
+            disabled={currentPage === 0}
             sx={{
-              backgroundColor: "#1976d2",
-              color: "white",
-              minWidth: "120px",
+              borderColor: "#F69320",
+              color: "#F69320",
               "&:hover": {
-                backgroundColor: "#1565c0",
+                borderColor: "#e08416",
+                backgroundColor: "rgba(246, 147, 32, 0.04)",
               },
             }}
-            onClick={handlePrevious}
           >
             Previous
           </Button>
-        )}
-
-        {currentPage === pages.length - 1 ? (
-          <Button
-            variant="contained"
-            sx={{
-              backgroundColor: "#F69320",
-              color: "white",
-              minWidth: "120px",
-              "&:hover": {
-                backgroundColor: "#e08416",
-              },
-            }}
-            onClick={handleSubmit}
-          >
-            Submit
-          </Button>
-        ) : (
-          <Button
-            variant="contained"
-            sx={{
-              backgroundColor: "#F69320",
-              color: "white",
-              minWidth: "120px",
-              "&:hover": {
-                backgroundColor: "#e08416",
-              },
-            }}
-            onClick={handleNext}
-          >
-            Next
-          </Button>
-        )}
-      </Box>
-
-      <Box sx={{ mt: 4, textAlign: "center" }}>
-        <Typography variant="body2" color="text.secondary">
-          Fields marked with <span style={{ color: "red" }}>*</span> are mandatory
-        </Typography>
-      </Box>
+          {currentPage === pages.length - 1 ? (
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              sx={{
+                backgroundColor: "#F69320",
+                "&:hover": {
+                  backgroundColor: "#e08416",
+                },
+              }}
+            >
+              Submit Examination
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              sx={{
+                backgroundColor: "#F69320",
+                "&:hover": {
+                  backgroundColor: "#e08416",
+                },
+              }}
+            >
+              Next
+            </Button>
+          )}
+        </Box>
+      )}
     </Container>
   )
 }
-
-export default AddAMC

@@ -168,7 +168,7 @@ const MyTaskList = () => {
                 <TableRow sx={{ backgroundColor: '#F69320', color: '#fff' }}>
                     <TableCell sx={{ color: "#fff" }}><strong>ID</strong></TableCell>
                     {/* <TableCell sx={{color:"#fff"}}><strong>LOA</strong></TableCell> */}
-                  <TableCell sx={{color:"#fff"}}><strong>Employee</strong></TableCell>
+                  <TableCell sx={{color:"#fff"}}><strong>Module</strong></TableCell>
                   {/* <TableCell sx={{color:"#fff"}}><strong>Station</strong></TableCell> */}
                   {/* <TableCell sx={{color:"#fff"}}><strong>Contact Person</strong></TableCell> */}
                   {/* <TableCell sx={{color:"#fff"}}><strong>Contact Number</strong></TableCell> */}
@@ -188,7 +188,7 @@ const MyTaskList = () => {
                         </Typography>
                       </TableCell>
                       {/* <TableCell>{ticket.LOA}</TableCell> */}
-                      <TableCell>{ticket.EmpName}</TableCell>
+                      <TableCell>{ticket.Milestone}</TableCell>
                       {/* <TableCell>{ticket.Station}</TableCell> */}
                       {/* <TableCell>{ticket.ContactPerson}</TableCell> */}
                       {/* <TableCell>{ticket.ContactNumber}</TableCell> */}
